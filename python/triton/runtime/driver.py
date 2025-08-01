@@ -6,7 +6,15 @@ from typing import Any, Callable, Generic, TypeVar, Union
 
 
 def _create_driver() -> DriverBase:
+    import os
+    if os.getenv("TRITON_INTEL_NPU_BACKEND", "0") == "1":
+        if "intel_npu" not in backends:
+            raise RuntimeError("TRITON_INTEL_NPU_BACKEND is set, but Intel NPU backend is unavailable.")
+        return backends["intel_npu"].driver()
     active_drivers = [x.driver for x in backends.values() if x.driver.is_active()]
+    if len(active_drivers) >= 2 and backends["intel_npu"].driver.is_active():
+        print("Both Intel NPU and GPU backends are available. Using the GPU backend.")
+        active_drivers.remove(backends["intel_npu"].driver)
     if len(active_drivers) != 1:
         raise RuntimeError(f"{len(active_drivers)} active drivers ({active_drivers}). There should only be one.")
     return active_drivers[0]()
